@@ -519,6 +519,21 @@ func (ec *Controller) podNeedsWork(pod *v1.Pod) (bool, string) {
 			}
 		}
 
+		// For a shared claim referenced by name, ensure the pod's status
+		// has an entry mapping podClaim.Name to the claim name.
+		if podClaim.ResourceClaimName != nil {
+			hasStatus := false
+			for _, s := range pod.Status.ResourceClaimStatuses {
+				if s.Name == podClaim.Name {
+					hasStatus = true
+					break
+				}
+			}
+			if !hasStatus {
+				return true, fmt.Sprintf("must publish status entry for shared ResourceClaim %s", *claimName)
+			}
+		}
+
 		// This check skips over the reasons below that only apply
 		// when a pod has been scheduled already. We need to keep checking
 		// for more claims that might need to be created.
@@ -968,8 +983,21 @@ func (ec *Controller) handleClaim(ctx context.Context, pod *v1.Pod, podGroup *sc
 				err = resourceclaim.IsForPod(pod, claim, ec.features.WorkloadResourceClaims)
 			}
 			if err == nil {
-				// Already created, nothing more to do.
 				logger.V(5).Info("Claim already created", "podClaim", podClaim.Name, "resourceClaim", claimName)
+				// Skip if pod.status already has the matching entry.
+				alreadyInStatus := false
+				for _, s := range pod.Status.ResourceClaimStatuses {
+					if s.Name == podClaim.Name && s.ResourceClaimName != nil && *s.ResourceClaimName == claimName {
+						alreadyInStatus = true
+						break
+					}
+				}
+				if !alreadyInStatus {
+					if *newPodClaims == nil {
+						*newPodClaims = make(map[string]string)
+					}
+					(*newPodClaims)[podClaim.Name] = claimName
+				}
 				return nil
 			}
 			logger.Error(err, "Claim that was created for the pod is no longer owned by the pod, creating a new one", "podClaim", podClaim.Name, "resourceClaim", claimName)
