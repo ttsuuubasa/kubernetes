@@ -23,14 +23,17 @@ package v1
 //
 // PodResourceClaimStatus is stored in the PodStatus for each PodResourceClaim
 // which references a ResourceClaimTemplate. It stores the generated name for
-// the corresponding ResourceClaim.
+// the corresponding ResourceClaim. It is also populated when the
+// PodResourceClaim references an existing ResourceClaim by name, in which
+// case it mirrors that name.
 type PodResourceClaimStatusApplyConfiguration struct {
 	// Name uniquely identifies this resource claim inside the pod.
 	// This must match the name of an entry in pod.spec.resourceClaims,
 	// which implies that the string must be a DNS_LABEL.
 	Name *string `json:"name,omitempty"`
 	// ResourceClaimName is the name of the ResourceClaim that was
-	// generated for the Pod in the namespace of the Pod.
+	// generated for the Pod in the namespace of the Pod, or the name
+	// of the existing ResourceClaim referenced by the PodResourceClaim.
 	//
 	// When the DRAWorkloadResourceClaims feature is enabled and the
 	// corresponding PodResourceClaim matches a PodGroupResourceClaim
